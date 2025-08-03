@@ -1,91 +1,77 @@
 #!/bin/sh
-# cowMOD v1.2 by CowCrusher
+# cowMOD.sh v1.2 - modular system manager
 
-COWMOD_DIR="$HOME/ish-filler/cowMOD"
-USAGE_FILE="$COWMOD_DIR/.cowMOD_usage"
-CACHE_DIR="$COWMOD_DIR/.cache"
-MAIN_REPO="https://github.com/CowCrusher/ish-filler/raw/main/cowMOD/packages"
+MAIN_REPO="https://raw.githubusercontent.com/CowCrusher/ish-filler/main/cowMOD"
 FALLBACK_REPO="https://archive.org/download/ish-filler"
-
-[ ! -f "$USAGE_FILE" ] && echo 0 > "$USAGE_FILE"
+PKG_DIR="$MAIN_REPO/packages"
+ALT_PKG_DIR="$FALLBACK_REPO/packages"
+USAGE_FILE="$(dirname "$0")/.cowMOD_usage"
 
 increment_usage() {
-  count=$(cat "$USAGE_FILE")
-  echo $((count + 1)) > "$USAGE_FILE"
+    COUNT=$(cat "$USAGE_FILE" 2>/dev/null || echo 0)
+    COUNT=$((COUNT + 1))
+    echo "$COUNT" > "$USAGE_FILE"
 }
 
-cow_header() {
-  echo "   (__) "
-  echo "   (oo)  cowMOD v1.2"
-  echo "  /------\\"
-  echo " *  |||||"
-  echo
+print_help() {
+    echo "cowMOD v1.2"
+    echo "Usage: cowMOD [option]"
+    echo "  -h        Show this help"
+    echo "  -i        Info screen (cow logo, usage)"
+    echo "  -d        Download packages"
+    echo "  -d -r     Download from archive.org"
+    echo "  -rm       Remove packages"
+    echo "  -m        Move packages/files"
+    echo "  -s        System commands"
+    echo "  -c <pkg>  Configure package"
+    echo "  -u        Update cowMOD & packages"
+}
+
+info_screen() {
+    clear
+    echo "   (__) "
+    echo "   (oo) cowMOD v1.2"
+    echo "  /------\\"
+    echo " / |    ||"
+    echo "*  /\\---/\\"
+    echo "Usage count: $(cat "$USAGE_FILE" 2>/dev/null || echo 0)"
+    echo "Cache: $(du -sh ~/.cache 2>/dev/null || echo 0)"
+    echo "Uptime: $(uptime)"
+}
+
+download_pkg() {
+    mkdir -p /usr/local/bin
+    echo "[*] Enter package name:"
+    read PKG
+    curl -fsSL "$PKG_DIR/$PKG" -o "/usr/local/bin/$PKG" || \
+    curl -fsSL "$ALT_PKG_DIR/$PKG" -o "/usr/local/bin/$PKG" || \
+    { echo "[!] Package not found."; return; }
+    chmod +x "/usr/local/bin/$PKG"
+    echo "[*] Installed $PKG."
+}
+
+remove_pkg() {
+    echo "[*] Enter package name to remove:"
+    read PKG
+    rm -f "/usr/local/bin/$PKG"
+    echo "[*] Removed $PKG."
+}
+
+update_all() {
+    echo "[*] Updating cowMOD..."
+    curl -fsSL "$MAIN_REPO/cowMOD.sh" -o "$0" || \
+    curl -fsSL "$FALLBACK_REPO/cowMOD.sh" -o "$0"
+    chmod +x "$0"
+    echo "[*] cowMOD updated."
 }
 
 case "$1" in
-  -h)
-    cow_header
-    echo "Usage: cowMOD [flags]"
-    echo "-h            Show this help"
-    echo "-i            Info screen (fastfetch style)"
-    echo "-d            Download package from GitHub repo"
-    echo "-d -r         Download package from Archive.org repo"
-    echo "-d -url       Download package from any URL"
-    echo "-rm           Remove a package"
-    echo "-m            Move a package to another folder"
-    echo "-s            Run system-wide commands"
-    echo "-u            Update cowMOD, ish-filler, and installed packages"
-    echo "-c [pkg]      Configure/edit a package"
-    ;;
-  -i)
-    cow_header
-    echo "Times used: $(cat "$USAGE_FILE")"
-    echo "Cache files: $(ls "$CACHE_DIR" 2>/dev/null | wc -l)"
-    echo "cowMOD path: $COWMOD_DIR"
-    echo "Primary repo: GitHub"
-    echo "Extra repo: Archive.org"
-    ;;
-  -d)
-    if [ "$2" = "-r" ]; then
-      shift 2
-      pkg="$1"
-      url="$FALLBACK_REPO/$pkg"
-    elif [ "$2" = "-url" ]; then
-      shift 2
-      url="$1"
-    else
-      shift
-      pkg="$1"
-      url="$MAIN_REPO/$pkg"
-    fi
-    echo "[*] Downloading package: $pkg"
-    mkdir -p "$CACHE_DIR"
-    curl -fLo "$CACHE_DIR/$pkg" "$url" || echo "[-] Package not found in repo"
-    ;;
-  -rm)
-    rm -f "$CACHE_DIR/$2"
-    echo "[*] Removed $2"
-    ;;
-  -m)
-    mv "$CACHE_DIR/$2" "$3"
-    echo "[*] Moved $2 to $3"
-    ;;
-  -s)
-    echo "[!] Running system command: $2"
-    sh -c "$2"
-    ;;
-  -u)
-    echo "[*] Updating cowMOD and ish-filler..."
-    curl -Lo "$COWMOD_DIR/cowMOD.sh" "$MAIN_REPO/../cowMOD.sh" && chmod +x "$COWMOD_DIR/cowMOD.sh"
-    curl -Lo "$HOME/ish-filler/ish-filler.sh" "https://github.com/CowCrusher/ish-filler/raw/main/ish-filler.sh" && chmod +x "$HOME/ish-filler/ish-filler.sh"
-    echo "[*] Update complete."
-    ;;
-  -c)
-    nano "$CACHE_DIR/$2"
-    ;;
-  *)
-    echo "( wrong usage — type cowMOD -h for help )"
-    ;;
+    -h) print_help ;;
+    -i) info_screen ;;
+    -d) download_pkg ;;
+    -rm) remove_pkg ;;
+    -u) update_all ;;
+    *) echo "( wrong usage type cowMOD -h for help )" ;;
 esac
 
 increment_usage
