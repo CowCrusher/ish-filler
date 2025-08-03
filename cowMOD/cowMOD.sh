@@ -1,139 +1,110 @@
 #!/bin/sh
+# cowMOD v1.2
+COWMOD_DIR="${HOME}/ish-filler/cowMOD"
+CACHE_FILE="${COWMOD_DIR}/.cowMOD_usage"
+PKG_REPO="https://raw.githubusercontent.com/CowCrusher/ish-filler/main/cowMOD/packages"
+EXTRA_REPO="https://archive.org/download/ish-filler"
 
-# cowMOD v1.2 by CowCrusher
-VERSION="1.2"
-REPO_MAIN="https://github.com/CowCrusher/ish-filler/raw/main"
-REPO_EXTRA="https://archive.org/download/ish-filler"
-CACHE_DIR="$HOME/.cache/cowMOD"
-USAGE_FILE="$CACHE_DIR/.usage"
-PKG_CACHE="$CACHE_DIR/.pkg-cache"
-COWMOD_PATH="$HOME/ish-filler/cowMOD"
-
-mkdir -p "$CACHE_DIR" "$COWMOD_PATH"
-
-# Usage count
-if [ -f "$USAGE_FILE" ]; then
-    COUNT=$(cat "$USAGE_FILE")
-else
-    COUNT=0
-fi
-COUNT=$((COUNT+1))
-echo "$COUNT" > "$USAGE_FILE"
+# Usage tracking
+[ -f "$CACHE_FILE" ] && COUNT=$(cat "$CACHE_FILE") || COUNT=0
+echo $((COUNT + 1)) > "$CACHE_FILE"
 
 # Help
-show_help() {
-    cat <<EOF
-cowMOD v$VERSION - modular command manager
-Usage: cowMOD -[command]
-
-Commands:
-  -h           Show this help message
-  -d           Download package from Alpine
-  -d -r        Download from user repo ($REPO_EXTRA)
-  -d -url URL  Download package from URL
-  -rm          Remove a package
-  -m           Move package/files to another folder
-  -s           System command mode (like systemd)
-  -alpine      Download Alpine for modding
-  -c NAME      Configure/edit program
-  -i           Info screen
-  -u           Update cowMOD and packages
-EOF
-}
+if [ "$1" = "-h" ]; then
+    echo "cowMOD v1.2 - Commands:"
+    echo "-h        Show help"
+    echo "-d        Download packages from main repo"
+    echo "-d -r     Download from archive.org"
+    echo "-d -url   Download from custom URL"
+    echo "-rm       Remove package"
+    echo "-m        Move package files"
+    echo "-s        System command mode"
+    echo "-alpine   Fetch and prep Alpine ISO"
+    echo "-c        Configure a package"
+    echo "-i        Show system info + cow"
+    echo "-u        Update packages and cowMOD/ish-filler"
+    exit 0
+fi
 
 # Info screen
-show_info() {
-    echo "   (__) "
-    echo "   (oo)   cowMOD Info"
-    echo "  /------\\"
-    echo " / |    ||"
-    echo "*  /\\---/\\  "
-    echo "~~     ~~"
-    echo
-    echo "cowMOD version : $VERSION"
-    echo "Total uses     : $(cat "$USAGE_FILE")"
-    echo "Cache location : $CACHE_DIR"
-    echo "Packages cached:"
-    cat "$PKG_CACHE" 2>/dev/null || echo "  None"
-    echo
-    fastfetch 2>/dev/null || echo "[*] fastfetch not installed."
-}
+if [ "$1" = "-i" ]; then
+    echo "🐄 cowMOD v1.2"
+    echo "Usage Count: $((COUNT + 1))"
+    echo "Cache Dir: ${COWMOD_DIR}"
+    echo "Fastfetch output:"
+    fastfetch || echo "(fastfetch not installed)"
+    exit 0
+fi
 
-# Download handler
-download_pkg() {
-    PKG="$1"
-    echo "[*] Downloading $PKG from Alpine..."
-    apk add --no-cache "$PKG" && echo "$PKG" >> "$PKG_CACHE" || echo "[!] Package not found in Alpine repo."
-}
+# Package installer
+if [ "$1" = "-d" ]; then
+    shift
+    REPO="$PKG_REPO"
+    [ "$1" = "-r" ] && REPO="$EXTRA_REPO" && shift
+    [ "$1" = "-url" ] && REPO="$2" && shift 2
+    mkdir -p /tmp/cowmod-pkgs
+    for pkg in "$@"; do
+        echo "Fetching $pkg..."
+        curl -fsSL "$REPO/$pkg" -o "/tmp/cowmod-pkgs/$pkg" || {
+            echo "❌ No such package in repo: $pkg"
+            continue
+        }
+        apk add /tmp/cowmod-pkgs/$pkg
+    done
+    exit 0
+fi
 
-download_repo() {
-    PKG="$1"
-    echo "[*] Downloading $PKG from user repo..."
-    wget -q "$REPO_EXTRA/$PKG" -O "$PKG" && echo "$PKG" >> "$PKG_CACHE" || echo "[!] Package not found in extra repo."
-}
+# Package remover
+if [ "$1" = "-rm" ]; then
+    shift
+    for pkg in "$@"; do
+        apk del "$pkg" || echo "❌ Failed to remove: $pkg"
+    done
+    exit 0
+fi
 
-download_url() {
-    URL="$1"
-    echo "[*] Downloading from $URL..."
-    wget "$URL" || echo "[!] Failed to download from URL."
-}
+# Move files
+if [ "$1" = "-m" ]; then
+    echo "Move not yet implemented."
+    exit 0
+fi
 
-remove_pkg() {
-    PKG="$1"
-    echo "[*] Removing $PKG..."
-    apk del "$PKG" || echo "[!] Failed to remove $PKG."
-    sed -i "/^$PKG$/d" "$PKG_CACHE" 2>/dev/null
-}
+# System command executor
+if [ "$1" = "-s" ]; then
+    echo "System mode (placeholder)."
+    exit 0
+fi
 
-update_cowMOD() {
-    echo "[*] Checking for updates..."
-    REMOTE_VER=$(wget -qO- "$REPO_MAIN/latest-version.txt")
-    if [ "$REMOTE_VER" != "$VERSION" ]; then
-        echo "[*] Updating cowMOD to v$REMOTE_VER..."
-        wget "$REPO_MAIN/cowMOD/cowMOD.sh" -O "$COWMOD_PATH/cowMOD.sh" && chmod +x "$COWMOD_PATH/cowMOD.sh"
-        echo "[*] Updated. Please restart cowMOD."
+# Alpine modding
+if [ "$1" = "-alpine" ]; then
+    echo "Download Alpine base (placeholder)."
+    exit 0
+fi
+
+# Configure command
+if [ "$1" = "-c" ]; then
+    echo "Edit command (placeholder)."
+    exit 0
+fi
+
+# Auto-updater
+if [ "$1" = "-u" ]; then
+    echo "🔁 Checking for updates..."
+    curl -fsSL "https://raw.githubusercontent.com/CowCrusher/ish-filler/main/latest-version.txt" -o /tmp/latest-version.txt
+    CUR_VER="1.2"
+    NEW_VER=$(cat /tmp/latest-version.txt)
+    if [ "$NEW_VER" != "$CUR_VER" ]; then
+        echo "⬆️ Updating to v$NEW_VER..."
+        curl -fsSL "https://raw.githubusercontent.com/CowCrusher/ish-filler/main/ish-filler.sh" -o "${HOME}/ish-filler/ish-filler.sh"
+        curl -fsSL "https://raw.githubusercontent.com/CowCrusher/ish-filler/main/cowMOD/cowMOD.sh" -o "${HOME}/ish-filler/cowMOD/cowMOD.sh"
+        chmod +x "${HOME}/ish-filler/ish-filler.sh" "${HOME}/ish-filler/cowMOD/cowMOD.sh"
+        echo "✅ Updated!"
     else
-        echo "[*] cowMOD is up to date."
+        echo "✅ Already up-to-date."
     fi
-}
+    exit 0
+fi
 
-# Argument handler
-case "$1" in
-    -h) show_help ;;
-    -i) show_info ;;
-    -d)
-        if [ "$2" = "-r" ]; then
-            read -p "Package name: " PKG
-            download_repo "$PKG"
-        elif [ "$2" = "-url" ]; then
-            read -p "Enter full URL: " URL
-            download_url "$URL"
-        else
-            read -p "Package name: " PKG
-            download_pkg "$PKG"
-        fi
-        ;;
-    -rm)
-        read -p "Package name to remove: " PKG
-        remove_pkg "$PKG"
-        ;;
-    -m)
-        read -p "Package/file name: " FILE
-        read -p "Destination folder: " DEST
-        mkdir -p "$DEST" && mv "$FILE" "$DEST"
-        echo "[*] Moved $FILE to $DEST"
-        ;;
-    -s)
-        echo "[*] System command mode not yet implemented."
-        ;;
-    -alpine)
-        echo "[*] Downloading Alpine system for modding..."
-        wget "$REPO_MAIN/install/alpine-minirootfs.tar.gz" -O alpine.tar.gz || echo "[!] Download failed."
-        ;;
-    -c)
-        read -p "Program to configure: " PROG
-        nano "$(which $PROG)" || echo "[!] Cannot configure $PROG"
-        ;;
-    -u) update_cowMOD ;;
-    *) echo "( wrong usage type cowMOD -h for help )" ;;
-esac
+# Wrong usage
+echo "( wrong usage - type cowMOD -h for help )"
+exit 1
